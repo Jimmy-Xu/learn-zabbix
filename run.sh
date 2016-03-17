@@ -61,10 +61,25 @@ fi
 echo "Done!"
 cat <<EOF
 ========================================
+
   Zabbix web UI:
     http://127.0.0.1:${EXPORT_ZWEB_PORT}
 
   Zabbix default account:
     admin / zabbix
+
+----------------------------------------
+
+  Install zabbix-agent:
+    sudo  rpm -ivh http://repo.zabbix.com/zabbix/3.0/rhel/7/x86_64/zabbix-release-3.0-1.el7.noarch.rpm
+    sudo yum install zabbix-agent
+
+  Config zabbix-agent: /etc/zabbix/zabbix_agentd.conf
+    Server=<zabbix server ip>
+    ServerActive=<zabbix server ip>
+
+  Start zabbix-agent:
+    sudo service zabbix-agent start
+
 ========================================
 EOF
