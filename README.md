@@ -18,6 +18,9 @@ run zabbix server in container, then add host to monitor
 	- [config zenbbix agent](#config-zenbbix-agent)
 	- [test connection with encryption](#test-connection-with-encryption)
 	- [add host in Zabbix web UI with encryption](#add-host-in-zabbix-web-ui-with-encryption)
+- [discovery and auto add host](#discovery-and-auto-add-host)
+	- [discovery config](#discovery-config)
+	- [auto add host](#auto-add-host)
 
 <!-- /TOC -->
 
@@ -50,6 +53,7 @@ $ sudo yum install zabbix-agent
 //edit /etc/zabbix/zabbix_agentd.conf
   Server=192.168.1.137
   ServerActive=192.168.1.137
+  Hostname=vm-centos7
 ```
 
 ## start service
@@ -75,6 +79,9 @@ default account: admin/zabbix
 ```
 
 ## add host
+
+> `Host name` should be same with `Hostname` in /etc/zabbix/zabbix_agentd.conf of zabbix-agent
+
 ```
 Mainmenu -> Configuration -> Hosts -> "Create host"
 
@@ -146,4 +153,29 @@ Mainmenu -> Configuration -> Hosts -> vm-centos7 -> Encryption -> PSK
 	PSK: xxxxxxxxxxxxx
 
 //PSK is the content in /etc/zabbix/zabbix_agentd.psk
+```
+
+# discovery and auto add host
+
+## discovery config
+```
+Mainmenu -> Configuration -> Discovery
+
+Discovery rules:
+	Name: Local network
+	IP Range: 10.1.1.1-254
+	Delay (in sec): 300
+	Enabled: true
+```
+
+## auto add host
+```
+Mainmenu -> Configuration -> Actions
+
+Actions:
+	Name: Auto discovery. Linux servers.
+	Enabled: true
+Operations:
+	Add to host groups: Linux servers
+	Link to templates: Template OS Linux
 ```
