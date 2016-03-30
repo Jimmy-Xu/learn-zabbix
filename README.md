@@ -21,6 +21,23 @@ run zabbix server in container, then add host to monitor
 - [discovery and auto add host](#discovery-and-auto-add-host)
 	- [discovery config](#discovery-config)
 	- [auto add host](#auto-add-host)
+- [send notification email by SES](#send-notification-email-by-ses)
+	- [config AWS SES](#config-aws-ses)
+		- [verify domain](#verify-domain)
+			- [verify a New Domain](#verify-a-new-domain)
+			- [add DNS record](#add-dns-record)
+			- [check Verify status](#check-verify-status)
+		- [verified Sender Email](#verified-sender-email)
+			- [verify a New Email Address](#verify-a-new-email-address)
+			- [click verify link in mailbox](#click-verify-link-in-mailbox)
+			- [check verify status](#check-verify-status)
+		- [get SMTP settings](#get-smtp-settings)
+		- [create SMTP Credentials](#create-smtp-credentials)
+	- [config Zabbix](#config-zabbix)
+		- [put custom alert script into "alertscripts" dir](#put-custom-alert-script-into-alertscripts-dir)
+		- [config custom alertscript in zabbix web-ui](#config-custom-alertscript-in-zabbix-web-ui)
+			- [add new Media Types for SES](#add-new-media-types-for-ses)
+			- [set Media of user](#set-media-of-user)
 
 <!-- /TOC -->
 
@@ -178,4 +195,160 @@ Actions:
 Operations:
 	Add to host groups: Linux servers
 	Link to templates: Template OS Linux
+```
+
+# send notification email by SES
+
+## config AWS SES
+
+### verify domain
+
+#### verify a New Domain
+```
+//open url
+https://us-west-2.console.aws.amazon.com/ses/home?region=us-west-2#verified-senders-domain:
+
+//click 'Verify a New Domain' button
+Domain: xxxxx.sh
+Generate DKIM Settings: <checked>
+
+//view detail info about xxxxx.sh, get the following info:
+	Record Type: 	TXT (Text)
+	TXT Name*:   	_amazonses.xxxxx.sh
+	TXT Value:    QKVxxxxxxxxxxxxxxxxxxxxxxxww=
+
+	DKIM:
+		Name	                                Type 	  Value
+		juyxxxxxxxxxxler._domainkey.xxxxx.sh 	CNAME 	juyxxxxxxxxxxler.dkim.amazonses.com
+		gegxxxxxxxxxx63d._domainkey.xxxxx.sh 	CNAME 	gegxxxxxxxxxx63d.dkim.amazonses.com
+		4wpxxxxxxxxxxfdu._domainkey.xxxxx.sh 	CNAME 	4wpxxxxxxxxxxfdu.dkim.amazonses.com
+```
+
+#### add DNS record
+```
+//open iwantmyname.com (example)
+https://iwantmyname.com/dashboard/dns/xxxxx.sh
+
+//add new DNS record(see above)
+1 TXT record, 3 CNAME
+```
+#### check Verify status
+```
+//go back to AWS SES console,
+https://us-west-2.console.aws.amazon.com/ses/home?region=us-west-2#verified-senders-domain:
+the 'Status' of xxxxx.sh should be green 'verified`
+```
+
+### verified Sender Email
+
+#### verify a New Email Address
+```
+//open https://us-west-2.console.aws.amazon.com/ses/home?region=us-west-2#verified-senders-email:
+
+//click "Verify a New Email Address" button
+
+//input a Email Address, for example: jimmy@xxxxx.sh
+```
+
+#### click verify link in mailbox
+```
+//login mailbox of jimmy@xxxxx.sh, there will be a new email with title like:
+"Amazon SES Address Verification Request in region US West (Oregon)"
+
+//click then confirm link in this mail, it will goto http://aws.amazon.com/cn/ses/verifysuccess/, that means verify success
+```
+
+#### check verify status
+```
+//go back to AWS SES console
+https://us-west-2.console.aws.amazon.com/ses/home?region=us-west-2#verified-senders-email:
+
+//the status of jimmy@xxxxx.sh should be green 'verified`
+```
+
+### get SMTP settings
+```
+//open https://us-west-2.console.aws.amazon.com/ses/home?region=us-west-2#smtp-settings:
+
+//get the following info:
+	Server Name:
+	email-smtp.us-west-2.amazonaws.com
+	Port:	25, 465 or 587
+	Use Transport Layer Security (TLS):	Yes
+```
+
+### create SMTP Credentials
+```
+//open https://us-west-2.console.aws.amazon.com/ses/home?region=us-west-2#smtp-settings:
+
+//click "Create My SMTP Credentials" button
+	IAM username: zabbix-agent
+
+//remember the following important info:
+	Access Key Id
+	Secret Access Key
+```
+
+## config Zabbix
+
+### put custom alert script into "alertscripts" dir
+
+> https://bitbucket.org/superdaigo/zabbix-alert-smtp/src
+
+```
+//get "alertscripts" path
+$ grep ^AlertScriptsPath /etc/zabbix/zabbix_server.conf
+	AlertScriptsPath=/usr/lib/zabbix/alertscripts
+
+$ cd /usr/lib/zabbix/alertscripts
+$ git clone https://git@bitbucket.org:superdaigo/zabbix-alert-smtp.git
+$ cd zabbix-alert-smtp
+$ cat settings.py
+	# Mail Account
+	SENDER_NAME = u'Zabbix Alert'
+	SENDER_EMAIL = 'jimmy@xxxxx.sh'
+	# Amazon SES
+	SMTP_USERNAME = '<Access Key Id>'
+	SMTP_PASSWORD = '<Secret Access Key>'
+	# Mail Server
+	SMTP_SERVER = 'email-smtp.us-west-2.amazonaws.com'
+	SMTP_PORT = 587
+	# SSL Type ('SMTP_TLS' / 'SMTP_SSL')
+	SMTP_SSL_TYPE = 'SMTP_TLS'
+
+//test send email
+$ /usr/lib/zabbix/alertscripts/zabbix-alert-smtp/zabbix-alert-smtp.sh jimmy@xxxxx.sh 'test' 'helloworld'
+
+//check the new email in jimmy@xxxxx.sh's mailbox
+```
+
+### config custom alertscript in zabbix web-ui
+
+> https://www.zabbix.com/documentation/3.2/manual/config/notifications/media/script  
+
+#### add new Media Types for SES
+
+```
+Mainmenu -> Administration -> Media Types
+	Create media type:
+		Name: SES
+		Type: Script
+		Script name: zabbix-alert-smtp/zabbix-alert-smtp.sh
+		Script parameters:
+			{ALERT.SENDTO}
+			{ALERT.SUBJECT}
+			{ALERT.MESSAGE}
+		Enabled: true
+```
+#### set Media of user
+
+> set the targe email which want to received the notification mail  
+
+```
+Mainmenu -> Administration -> Users -> click Admin user -> Media -> Add
+	Type: SES
+	Send to: jimmy@xxxxx.sh
+	When active: 1-7,00:00-24:00
+	Use if severity: <check all>
+	Enabled: true
 ```
