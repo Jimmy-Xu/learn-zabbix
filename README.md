@@ -5,9 +5,14 @@ run zabbix server in container, then add host to monitor
 
 - [start zabbix server container](#start-zabbix-server-container)
 - [install zabbix agent](#install-zabbix-agent)
-	- [install](#install)
-	- [config](#config)
-	- [start service](#start-service)
+	- [install on bare metal server](#install-on-bare-metal-server)
+		- [install from rpm](#install-from-rpm)
+		- [config](#config)
+		- [start service](#start-service)
+	- [install on AWS Linux AMI](#install-on-aws-linux-ami)
+		- [install from zabbix source](#install-from-zabbix-source)
+		- [config file](#config-file)
+		- [start service](#start-service)
 - [test connection](#test-connection)
 - [add host in Zabbix web UI](#add-host-in-zabbix-web-ui)
 	- [login Zabbix web UI](#login-zabbix-web-ui)
@@ -41,6 +46,7 @@ run zabbix server in container, then add host to monitor
 
 <!-- /TOC -->
 
+
 > **zabbix server**: `192.168.1.137`  
 > **zabbix agent**: `192.168.1.110`  
 
@@ -59,13 +65,19 @@ $ docker ps | grep zabbix
 
 > run zabbix agent on `192.168.1.110`  
 
-## install
+## install on bare metal server
+
+### install from rpm
 ```
 $ sudo  rpm -ivh http://repo.zabbix.com/zabbix/3.0/rhel/7/x86_64/zabbix-release-3.0-1.el7.noarch.rpm
 $ sudo yum install zabbix-agent
+
+//config file
+$ ls /etc/zabbix/zabbix_agentd.conf
+
 ```
 
-## config
+### config
 ```
 //edit /etc/zabbix/zabbix_agentd.conf
   Server=192.168.1.137
@@ -73,9 +85,56 @@ $ sudo yum install zabbix-agent
   Hostname=vm-centos7
 ```
 
-## start service
+### start service
 ```
 $ sudo service zabbix-agent start
+```
+
+
+## install on AWS Linux AMI
+
+> Installation from sources  
+> doc: https://www.zabbix.com/documentation/3.2/manual/installation/install  
+
+### install from zabbix source
+
+```
+$ wget http://tenet.dl.sourceforge.net/project/zabbix/ZABBIX%20Latest%20Stable/3.0.1/zabbix-3.0.1.tar.gz
+$ tar xzvf zabbix-3.0.1.tar.gz
+$ cd zabbix-3.0.1
+$ ./configure --enable-agent
+$ make install
+$ sudo make install
+
+//deploy init.d config file
+$ sudo cp misc/init.d/fedora/core/zabbix_agentd /etc/init.d/
+
+//create link
+$ ln -s /usr/local/sbin/zabbix_agentd /usr/sbin/zabbix_agentd
+$ ln -s /usr/local/bin/zabbix_get /usr/bin/zabbix_get
+$ ln -s /usr/local/bin/zabbix_sender /usr/bin/zabbix_sender
+
+//create user and group for zabbix
+$ sudo groupadd zabbix
+$ sudo useradd -g zabbix zabbix
+```
+
+### config file
+```
+//config file
+$ vi /usr/local/etc/zabbix_agentd.conf
+	Server=192.168.1.137
+	ServerActive=192.168.1.137
+	Hostname=ec2-centos7
+```
+
+### start service
+```
+//enable autostart
+$ chkconfig --add /etc/init.d/zabbix_agentd
+
+//start zabbix_agentd
+$ sudo service zabbix_agentd start
 ```
 
 # test connection
