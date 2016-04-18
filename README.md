@@ -38,14 +38,22 @@ run zabbix server in container, then add host to monitor
 			- [check verify status](#check-verify-status)
 		- [get SMTP settings](#get-smtp-settings)
 		- [create SMTP Credentials](#create-smtp-credentials)
-	- [config Zabbix](#config-zabbix)
+	- [config Zabbix for SES](#config-zabbix-for-ses)
 		- [put custom alert script into "alertscripts" dir](#put-custom-alert-script-into-alertscripts-dir)
 		- [config custom alertscript in zabbix web-ui](#config-custom-alertscript-in-zabbix-web-ui)
 			- [add new Media Types for SES](#add-new-media-types-for-ses)
-			- [set Media of user](#set-media-of-user)
+			- [add Media Type `SES` to user](#add-media-type-ses-to-user)
+- [integration zabbix with slack](#integration-zabbix-with-slack)
+	- [config Slack](#config-slack)
+		- [create new Channel](#create-new-channel)
+		- [create new Incoming WebHooks](#create-new-incoming-webhooks)
+	- [config Zabbix for slack](#config-zabbix-for-slack)
+		- [put slack.sh to "alertscripts" dir](#put-slacksh-to-alertscripts-dir)
+		- [config slack.sh in zabbix web-ui](#config-slacksh-in-zabbix-web-ui)
+			- [add new Media Types for Slack](#add-new-media-types-for-slack)
+			- [add Media Type `Slack` to user](#add-media-type-slack-to-user)
 
 <!-- /TOC -->
-
 
 > **zabbix server**: `192.168.1.137`  
 > **zabbix agent**: `192.168.1.110`  
@@ -348,7 +356,7 @@ https://us-west-2.console.aws.amazon.com/ses/home?region=us-west-2#verified-send
 	Secret Access Key
 ```
 
-## config Zabbix
+## config Zabbix for SES
 
 ### put custom alert script into "alertscripts" dir
 
@@ -399,15 +407,87 @@ Mainmenu -> Administration -> Media Types
 			{ALERT.MESSAGE}
 		Enabled: true
 ```
-#### set Media of user
+#### add Media Type `SES` to user
 
 > set the targe email which want to received the notification mail  
 
 ```
 Mainmenu -> Administration -> Users -> click Admin user -> Media -> Add
-	Type: SES
-	Send to: jimmy@xxxxx.sh
-	When active: 1-7,00:00-24:00
+	Type           : SES
+	Send to        : jimmy@xxxxx.sh
+	When active    : 1-7,00:00-24:00
 	Use if severity: <check all>
-	Enabled: true
+	Enabled        : true
+```
+
+# integration zabbix with slack
+
+## config Slack
+
+### create new Channel
+```
+create a new public channel, name is 'zabbix-alert'
+```
+
+### create new Incoming WebHooks
+```
+go to https://hypercrew.slack.com/apps/manage/custom-integrations
+ -> Add Configuration
+   -> Integration Settings
+	    - Post to Channel: #zabbix-alert
+	    - Webhook URL    : https://hooks.slack.com/services/T0xxxxxxK/B1xxxxxxB/QkUxxxxxxxxxxxxxxxxxxxxxxxx
+	    - Customize Name : ZabbixBot
+	    - Customize Icon : <Upload an image> as zabbix icon
+```
+
+## config Zabbix for slack
+
+> https://github.com/ericoc/zabbix-slack-alertscript  
+
+### put slack.sh to "alertscripts" dir
+```
+//1. get AlertScriptsPath
+$ grep ^AlertScriptsPath /etc/zabbix/zabbix_server.conf
+  AlertScriptsPath=/usr/lib/zabbix/alertscripts
+
+//2. get slack.sh from https://github.com/ericoc/zabbix-slack-alertscript, and put it in ${AlertScriptsPath}
+//modify url and username in slack.sh
+url='https://hooks.slack.com/services/T0xxxxxxK/B1xxxxxxB/QkUxxxxxxxxxxxxxxxxxxxxxxxx'
+username='ZabbixBot'
+
+//3. test slack.sh, #zabbix-alert channel will receive the following message when configure correct
+$ ./slack.sh '#zabbix-alert' PROBLEM 'Oh no! Something is wrong!'
+  ok
+$ ./slack.sh '@jimmy' PROBLEM 'Oh no! Something is wrong!'
+  ok
+```
+
+### config slack.sh in zabbix web-ui
+
+#### add new Media Types for Slack
+
+```
+Mainmenu -> Administration -> Media Types
+	Create media type:
+		Name: Stack
+		Type: Script
+		Script name: slack.sh
+		Script parameters:
+			{ALERT.SENDTO}
+			{ALERT.SUBJECT}
+			{ALERT.MESSAGE}
+		Enabled: true
+```
+
+#### add Media Type `Slack` to user
+
+> set the targe email which want to received the notification mail  
+
+```
+Mainmenu -> Administration -> Users -> click Admin user -> Media -> Add
+	Type           : Stack
+	Send to        : #zabbix-monitor
+	When active    : 1-7,00:00-24:00
+	Use if severity: <check all>
+	Enabled        : true
 ```
