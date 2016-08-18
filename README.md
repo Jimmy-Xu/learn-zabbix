@@ -486,7 +486,7 @@ Mainmenu -> Administration -> Media Types
 ```
 Mainmenu -> Administration -> Users -> click Admin user -> Media -> Add
 	Type           : Stack
-	Send to        : #zabbix-monitor
+	Send to        : #zabbix-alert
 	When active    : 1-7,00:00-24:00
 	Use if severity: <check all>
 	Enabled        : true
